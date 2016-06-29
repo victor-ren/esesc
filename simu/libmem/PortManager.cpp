@@ -46,12 +46,6 @@ PortManagerBanked::PortManagerBanked(const char *section, MemObj *_mobj)
     ncDelay = missDelay;
   }
 
-	if (SescConf->checkInt(section, "ncDelay")) {
-    ncDelay = SescConf->getInt(section, "ncDelay");
-  }else{
-    ncDelay = missDelay;
-  }
-
 	dataDelay  = hitDelay-missDelay;
 	tagDelay   = hitDelay-dataDelay;
 

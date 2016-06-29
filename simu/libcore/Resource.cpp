@@ -537,8 +537,8 @@ bool FUStore::preretire(DInst *dinst, bool flushing) {
   scbEntries--;
   scbQueue.push_back(dinst);
 
-  bool pendingLine = scbMerge[dinst->getAddr()>>lineSizeBits]>0;
-  scbMerge[dinst->getAddr()>>lineSizeBits]++;
+  bool pendingLine = scbMerge[(dinst->getAddr()>>lineSizeBits) & 1023]>0;
+  scbMerge[(dinst->getAddr()>>lineSizeBits) & 1023]++;
 
   if (enableDcache && !pendingLine) {
     MemRequest::sendReqWrite(firstLevelMemObj, dinst->getStatsFlag(), dinst->getAddr(), performedCB::create(this,dinst));
@@ -562,7 +562,7 @@ void FUStore::performed(DInst *dinst) {
   }
   dinst->markPerformed();
 
-  scbMerge[dinst->getAddr()>>lineSizeBits]--;
+  scbMerge[(dinst->getAddr()>>lineSizeBits) & 1023]--;
 
 #ifndef MEM_TSO
   // RC
