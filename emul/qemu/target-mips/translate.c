@@ -3655,7 +3655,6 @@ static void gen_muldiv(DisasContext *ctx, uint32_t opc,
         check_dsp(ctx);
     }
 
-    ESESC_TRACE_ALU(ctx->pc, iRALU, rs, rt, 0);
     switch (opc) {
     case OPC_DIV:
         {
@@ -3852,6 +3851,19 @@ static void gen_muldiv(DisasContext *ctx, uint32_t opc,
         generate_exception(ctx, EXCP_RI);
         goto out;
     }
+#ifdef CONFIG_ESESC
+    if (strstr(opn,"div")!=0 || strstr(opn,"sqr")!=0) {
+      ESESC_TRACE_ALU(ctx->pc, iCALU_DIV, rs, rt, acc);
+    }else if (strstr(opn,"madd")!=0) {
+      ESESC_TRACE_ALU(ctx->pc, iCALU_MULT, rs, rt, LREG_TMP1);
+      ESESC_TRACE_ALU(ctx->pc, iAALU , acc, LREG_TMP1, acc);
+    }else if (strstr(opn,"mul")!=0) {
+      ESESC_TRACE_ALU(ctx->pc, iCALU_MULT, rs, rt, acc);
+    }else{
+      ESESC_TRACE_ALU(ctx->pc, iCALU_FPALU, rs, rt, acc);
+    }
+#endif
+
     (void)opn; /* avoid a compiler warning */
     MIPS_DEBUG("%s %s %s", opn, regnames[rs], regnames[rt]);
  out:
@@ -10888,23 +10900,26 @@ static void gen_farith (DisasContext *ctx, enum fopcode op1,
         break;
     }
 #ifdef CONFIG_ESESC
-     if (strstr(opn,"div")!=0) {
+    if (strstr(opn,"div")!=0 || strstr(opn,"sqr")!=0) {
       ESESC_TRACE_ALU(ctx->pc, iCALU_FPDIV, LREG_FP0+fs, LREG_FP0+ft, LREG_FP0+fd);
-     }else if (strstr(opn,"mul")!=0) {
+    }else if (strstr(opn,"madd")!=0 || strstr(opn,"msub")!=0) {
+      ESESC_TRACE_ALU(ctx->pc, iCALU_FPMULT, LREG_FP0+fs, LREG_FP0+ft, LREG_TMP1);
+      ESESC_TRACE_ALU(ctx->pc, iCALU_FPALU , LREG_FP0+fd, LREG_TMP1, LREG_FP0+fd);
+    }else if (strstr(opn,"mul")!=0) {
       ESESC_TRACE_ALU(ctx->pc, iCALU_FPMULT, LREG_FP0+fs, LREG_FP0+ft, LREG_FP0+fd);
-     }else{
-       switch (optype) {
-         case BINOP:
+    }else{
+      switch (optype) {
+        case BINOP:
           ESESC_TRACE_ALU(ctx->pc, iCALU_FPALU, LREG_FP0+fs, LREG_FP0+ft, LREG_FP0+fd);
-           break;
-         case CMPOP:
+          break;
+        case CMPOP:
           ESESC_TRACE_ALU(ctx->pc, iCALU_FPALU, LREG_FP0+fs, LREG_FP0+ft, LREG_InvalidOutput);
-           break;
-         default:
+          break;
+        default:
           ESESC_TRACE_ALU(ctx->pc, iCALU_FPALU, LREG_FP0+fs, 0, LREG_FP0+fd);
-           break;
-       }
-     }
+          break;
+      }
+    }
 #endif
 }
 
@@ -16123,6 +16138,7 @@ static void gen_mipsdsp_arith(DisasContext *ctx, uint32_t op1, uint32_t op2,
 
     gen_load_gpr(v1_t, v1);
     gen_load_gpr(v2_t, v2);
+    ESESC_TRACE_ALU(ctx->pc, iCALU_FPALU, v1, v2, ret);
 
     switch (op1) {
     /* OPC_MULT_G_2E is equal OPC_ADDUH_QB_DSP */
@@ -16827,6 +16843,7 @@ static void gen_mipsdsp_multiply(DisasContext *ctx, uint32_t op1, uint32_t op2,
     tcg_gen_movi_i32(t0, ret);
     gen_load_gpr(v1_t, v1);
     gen_load_gpr(v2_t, v2);
+    ESESC_TRACE_ALU(ctx->pc, iCALU_FPMULT, v1, v2, ret);
 
     switch (op1) {
     /* OPC_MULT_G_2E, OPC_ADDUH_QB_DSP, OPC_MUL_PH_DSP have

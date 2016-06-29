@@ -115,7 +115,7 @@ void OoOProcessor::fetch(FlowID fid)
   I(active);
   I(eint);
 
-  if( IFID.isBlocked(0)) {
+  if( IFID.isBlocked()) {
 //    I(0);
     busy = true;
   }else{

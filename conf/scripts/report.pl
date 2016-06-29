@@ -1536,7 +1536,7 @@ sub instStats {
     + $cf->getResultField("P(${i})_ExeEngine_iCALU_DIV","n");
 
     my $nInst = $iAALU + $iBALU + $iCALU + $iSALU + $iLALU;
-    my $nFor   = $cf->getResultField("LSQ(${i})","stldForwarding");
+    my $nFor   = $cf->getResultField("P(${i})","stldForwarding");
 
     $nInst = 1 if ($nInst == 0);
 

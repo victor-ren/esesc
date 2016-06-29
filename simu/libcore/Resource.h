@@ -86,6 +86,7 @@ protected:
   const int32_t     coreid;
 
   Time_t       usedTime;
+  bool       inorder;
 
   Resource(uint8_t type, Cluster *cls, PortGeneric *gen, TimeDelta_t l);
 
@@ -170,6 +171,9 @@ private:
 
   int32_t freeEntries;
   bool enableDcache;
+#ifdef MEM_TSO2
+  GStatsCntr    tso2Replay;
+#endif
 
 protected:
   void cacheDispatched(DInst *dinst);
@@ -193,6 +197,8 @@ private:
   bool    enableDcache;
 	int32_t scbSize;
 	int32_t scbEntries;
+  int32_t scbMerge[1024];
+  uint32_t lineSizeBits;
 
 	typedef std::list<DInst *> SCBQueueType;
 	SCBQueueType scbQueue;
@@ -245,11 +251,10 @@ private:
   GStatsCntr dmemoryBarrier;
   GStatsCntr imemoryBarrier;
   Time_t blockUntil;
-  bool scooreMemory;
 
 protected:
 public:
-  FURALU(uint8_t type, Cluster *cls, PortGeneric *aGen, TimeDelta_t l, bool scooreMemory, int32_t id);
+  FURALU(uint8_t type, Cluster *cls, PortGeneric *aGen, TimeDelta_t l, int32_t id);
 
   StallCause canIssue(DInst  *dinst);
   void       executing(DInst *dinst);
