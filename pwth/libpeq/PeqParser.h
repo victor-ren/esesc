@@ -37,7 +37,7 @@
 
 #include "muParserTest.h"
 
-#define _USE_MATH_DEFINES		
+#define _USE_MATH_DEFINES    
 
 #include <cstdlib>
 #include <cstring>

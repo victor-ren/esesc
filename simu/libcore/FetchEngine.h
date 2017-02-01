@@ -61,6 +61,8 @@ private:
   uint16_t      Fetch2Width;
   uint16_t      Fetch2WidthBits;
 
+  bool          TargetInLine;
+  bool          FetchOneLine;
 	bool          AlignedFetch;
 	bool          TraceAlign;
 
@@ -68,7 +70,8 @@ private:
   uint16_t      maxBB;
 
   TimeDelta_t   IL1HitDelay;
-  uint16_t      lineSize;
+  uint16_t      LineSize;
+  uint16_t      LineSizeBits;
 
   // InstID of the address that generated a misprediction
  
@@ -93,6 +96,7 @@ protected:
   GStatsCntr nDelayInst2;
   GStatsCntr nDelayInst3;
   GStatsCntr nBTAC;
+  GStatsCntr zeroDinst;
   // *******************
 
 public:

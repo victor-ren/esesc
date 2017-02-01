@@ -129,16 +129,16 @@ ParserTag* AsParserTag(muParserHandle_t a_hParser)
                          DWORD ul_reason_for_call, 
                          LPVOID /*lpReserved*/ )
   {
-	  switch (ul_reason_for_call)
-	  {
-	  case  DLL_PROCESS_ATTACH:
+    switch (ul_reason_for_call)
+    {
+    case  DLL_PROCESS_ATTACH:
           break;
 
     case  DLL_THREAD_ATTACH:
     case  DLL_THREAD_DETACH:
     case  DLL_PROCESS_DETACH:
-    		  break;
-	  }
+          break;
+    }
 
     return TRUE;
   }
@@ -635,8 +635,8 @@ API_EXPORT(void) mupDefineBulkVar(muParserHandle_t a_hParser,
 
 //---------------------------------------------------------------------------
 API_EXPORT(void) mupDefineConst(muParserHandle_t a_hParser, 
-								const muChar_t *a_szName, 
-								muFloat_t a_fVal)
+                const muChar_t *a_szName, 
+                muFloat_t a_fVal)
 {
   MU_TRY
     muParser_t* const p(AsParser(a_hParser));
@@ -646,8 +646,8 @@ API_EXPORT(void) mupDefineConst(muParserHandle_t a_hParser,
 
 //---------------------------------------------------------------------------
 API_EXPORT(void) mupDefineStrConst(muParserHandle_t a_hParser, 
-								   const muChar_t *a_szName, 
-								   const muChar_t *a_szVal)
+                   const muChar_t *a_szName, 
+                   const muChar_t *a_szVal)
 {
   MU_TRY
     muParser_t* const p(AsParser(a_hParser));
@@ -714,7 +714,7 @@ API_EXPORT(void) mupDefineOprtChars( muParserHandle_t a_hParser,
 
 //---------------------------------------------------------------------------
 API_EXPORT(void) mupDefineInfixOprtChars(muParserHandle_t a_hParser, 
-										 const muChar_t *a_szCharset)
+                     const muChar_t *a_szCharset)
 {
   muParser_t* const p(AsParser(a_hParser));
   p->DefineInfixOprtChars(a_szCharset);
@@ -754,9 +754,9 @@ API_EXPORT(int) mupGetVarNum(muParserHandle_t a_hParser)
     will be called, this is unavoidable.
 */
 API_EXPORT(void) mupGetVar(muParserHandle_t a_hParser, 
-						   unsigned a_iVar, 
-						   const muChar_t **a_szName, 
-						   muFloat_t **a_pVar)
+               unsigned a_iVar, 
+               const muChar_t **a_szName, 
+               muFloat_t **a_pVar)
 {
   // A static buffer is needed for the name since i cant return the
   // pointer from the map.
@@ -826,9 +826,9 @@ API_EXPORT(int) mupGetExprVarNum(muParserHandle_t a_hParser)
     \throw nothrow
 */
 API_EXPORT(void) mupGetExprVar(muParserHandle_t a_hParser, 
-							   unsigned a_iVar, 
-							   const muChar_t **a_szName, 
-							   muFloat_t **a_pVar)
+                 unsigned a_iVar, 
+                 const muChar_t **a_szName, 
+                 muFloat_t **a_pVar)
 {
   // A static buffer is needed for the name since i cant return the
   // pointer from the map.

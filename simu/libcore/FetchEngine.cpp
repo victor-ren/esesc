@@ -47,7 +47,7 @@
 #include "Pipeline.h"
 extern bool MIMDmode;
 
-#define ENABLE_FAST_WARMUP 1
+//#define ENABLE_FAST_WARMUP 1
 //#define FETCH_TRACE 1
 
 FetchEngine::FetchEngine(FlowID id
@@ -58,11 +58,12 @@ FetchEngine::FetchEngine(FlowID id
   ,avgBranchTime("P(%d)_FetchEngine_avgBranchTime", id)
   ,avgBranchTime2("P(%d)_FetchEngine_avgBranchTime2", id)
   ,avgFetchTime("P(%d)_FetchEngine_avgFetchTime", id)
-  ,avgFetched("P(%d)_FetchEngine:avgFetched", id)
+  ,avgFetched("P(%d)_FetchEngine_avgFetched", id)
   ,nDelayInst1("P(%d)_FetchEngine:nDelayInst1", id)
   ,nDelayInst2("P(%d)_FetchEngine:nDelayInst2", id) // Not enough BB/LVIDs per cycle
   ,nDelayInst3("P(%d)_FetchEngine:nDelayInst3", id) 
   ,nBTAC("P(%d)_FetchEngine:nBTAC", id) // BTAC corrections to BTB
+  ,zeroDinst("P(%d)_zeroDinst:nBTAC", id) 
   //  ,szBB("FetchEngine(%d):szBB", id)
   //  ,szFB("FetchEngine(%d):szFB", id)
   //  ,szFS("FetchEngine(%d):szFS", id)
@@ -85,6 +86,17 @@ FetchEngine::FetchEngine(FlowID id
     TraceAlign = SescConf->getBool("cpusimu","TraceAlign", id);
   }else{
     TraceAlign = false;
+  }
+  if ( SescConf->checkBool("cpusimu","TargetInLine", id)) {
+    TargetInLine = SescConf->getBool("cpusimu","TargetInLine", id);
+  }else{
+    TargetInLine = false;
+  }
+
+  if ( SescConf->checkBool("cpusimu","fetchOneLine", id)) {
+    FetchOneLine = SescConf->getBool("cpusimu","fetchOneLine", id);
+  }else{
+    FetchOneLine = !TraceAlign;
   }
 
   SescConf->isBetween("cpusimu", "bb4Cycle",0,1024,id);
@@ -123,11 +135,12 @@ FetchEngine::FetchEngine(FlowID id
       SescConf->notCorrect();
     }
   }
-  lineSize = SescConf->getInt(isection,"bsize");
-  if ((lineSize/4) < FetchWidth) {
-    MSG("ERROR: icache line size should be larger than fetch width lineSize=%d fetchWidth=%d",lineSize, FetchWidth);
+  LineSize = SescConf->getInt(isection,"bsize");
+  if ((LineSize/4) < FetchWidth) {
+    MSG("ERROR: icache line size should be larger than fetch width LineSize=%d fetchWidth=%d [%s]",LineSize, FetchWidth,isection);
     SescConf->notCorrect();
   }
+  LineSizeBits = log2i(LineSize);
 
   // Get some icache L1 parameters
   enableICache = SescConf->getBool("cpusimu","enableICache", id);
@@ -155,9 +168,18 @@ bool FetchEngine::processBranch(DInst *dinst, uint16_t n2Fetch) {
   Time_t n = (globalClock-lastMissTime);
   avgFetchTime.sample(n, dinst->getStatsFlag());
 
-  if (fastfix)
+#if 0
+  if (!dinst->isBiasBranch()) {
+    if ( dinst->isTaken() && (dinst->getAddr() > dinst->getPC() && (dinst->getAddr() + 8<<2) <= dinst->getPC())) {
+      fastfix = true;
+    }
+  }
+#endif
+
+  if (fastfix) {
+    I(globalClock);
     unBlockFetchBPredDelayCB::schedule(delay, this , dinst, globalClock);
-  else 
+  }else 
     dinst->lockFetch(this);
 
   return true;
@@ -176,8 +198,10 @@ void FetchEngine::realfetch(IBucket *bucket, EmulInterface *eint, FlowID fid, in
   do {
     DInst *dinst = 0;
     dinst = eint->peekHead(fid);
-    if (dinst == 0)
+    if (dinst == 0) {
+      zeroDinst.inc(true);
       break;
+    }
 
 #ifdef ENABLE_FAST_WARMUP
     if (dinst->getPC() == 0) {
@@ -219,10 +243,10 @@ void FetchEngine::realfetch(IBucket *bucket, EmulInterface *eint, FlowID fid, in
 
 
         // No matter what, do not pass cache line boundary
-        uint16_t fetchMaxPos = (entryPC & (lineSize/4-1)) + FetchWidth; 
-        if (fetchMaxPos>(lineSize/4)) {
-          //MSG("entryPC=0x%llx lost1=%d lost2=%d",entryPC, fetchLost, (fetchMaxPos-lineSize/4));
-          fetchLost = (fetchMaxPos-lineSize/4);
+        uint16_t fetchMaxPos = (entryPC & (LineSize/4-1)) + FetchWidth; 
+        if (fetchMaxPos>(LineSize/4)) {
+          //MSG("entryPC=0x%llx lost1=%d lost2=%d",entryPC, fetchLost, (fetchMaxPos-LineSize/4));
+          fetchLost = (fetchMaxPos-LineSize/4);
         }else{
           //MSG("entryPC=0x%llx lost1=%d",entryPC, fetchLost);
         }
@@ -234,10 +258,13 @@ void FetchEngine::realfetch(IBucket *bucket, EmulInterface *eint, FlowID fid, in
 
       n2Fetch--;
     }else{
+      I(lastpc);
+
       if ((lastpc+4) == dinst->getPC()) {
         n2Fetch--;
       }else if ((lastpc+8) != dinst->getPC()) {
-        maxBB--;
+        if (!TargetInLine || (lastpc>>LineSizeBits) != (dinst->getPC()>>LineSizeBits))
+          maxBB--;
         if( maxBB < 1 ) {
           nDelayInst2.add(n2Fetch, dinst->getStatsFlag());
           break;
@@ -245,6 +272,11 @@ void FetchEngine::realfetch(IBucket *bucket, EmulInterface *eint, FlowID fid, in
         n2Fetch--; // There may be a NOP in the delay slot, do not count it
       }else{
         n2Fetch-=2; // NOP still consumes delay slot
+      }
+      if (FetchOneLine) {
+        if ((lastpc>>LineSizeBits) != (dinst->getPC()>>LineSizeBits)) {
+          break;
+        }
       }
     }
     lastpc  = dinst->getPC();
@@ -282,10 +314,13 @@ void FetchEngine::realfetch(IBucket *bucket, EmulInterface *eint, FlowID fid, in
         DInst *dinstn = eint->peekHead(fid);
         if (dinstn && dinst->getAddr() && n2Fetch) { // Taken branch and next inst is delay slot
           if (dinstn->getPC() == (lastpc+4)) {
-            bucket->push(eint->executeHead(fid));
+            eint->executeHead(fid);
+            bucket->push(dinstn);
             n2Fetch--;
           }
-        }
+        }else if (dinstn == 0)
+          zeroDinst.inc(true);
+
 #ifdef FETCH_TRACE
         if (dinst->isBiasBranch() && dinst->getFetch()) {
           // OOPS. Thought that it was bias and it is a long misspredict

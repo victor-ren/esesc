@@ -34,7 +34,7 @@
 
 #include "muParserTest.h"
 
-#define _USE_MATH_DEFINES		
+#define _USE_MATH_DEFINES    
 
 #include <cstdlib>
 #include <cstring>
@@ -198,9 +198,9 @@ PeqParser::~PeqParser()
 
 void PeqParser::SetParserExpression()
 {
-	const char *EqExpression;
-	EqExpression = SescConf->getCharPtr("equation_sample1","leakage");
-	parser.SetExpr((string_type)EqExpression);
+  const char *EqExpression;
+  EqExpression = SescConf->getCharPtr("equation_sample1","leakage");
+  parser.SetExpr((string_type)EqExpression);
 }
 /*value_type PeqParser::ParserEvalEq()
 { 
@@ -212,17 +212,17 @@ void PeqParser::SetParserExpression()
 } */
 void PeqParser::testParser()
 {
-	// create stat counters for acitivity rate 
-	// peqglue.createStatCounters(); 
+  // create stat counters for acitivity rate 
+  // peqglue.createStatCounters(); 
   printf("FIXME: 'createStatCounters' should not be called here in PeqParser. The testParser Caller should create the counters. Exiting...\n");
   
-	this->SetParserExpression();
-	string_type s_expr = parser.GetExpr();
+  this->SetParserExpression();
+  string_type s_expr = parser.GetExpr();
 //        string_type s_expr1 = parser.GetExpr();
-	cout<<"Parser Expression is "<<s_expr<<"\n";
+  cout<<"Parser Expression is "<<s_expr<<"\n";
        // cout<<"Activity Rate for ROB read is " <<s_expr1<<"\n";
-	parser.Eval();
-	ListVar(parser);
+  parser.Eval();
+  ListVar(parser);
 }
 
 

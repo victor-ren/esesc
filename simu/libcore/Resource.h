@@ -68,14 +68,12 @@ enum StallCause {
   Suspend 
 };
 
-class GProcessor;
 class LSQ;
 
 class Resource {
 protected:
   Cluster     *const cluster;
   PortGeneric *const gen;
-  GProcessor  *const gproc;
 
   GStatsAvg   avgRenameTime;
   GStatsAvg   avgIssueTime;
@@ -88,7 +86,7 @@ protected:
   Time_t       usedTime;
   bool       inorder;
 
-  Resource(uint8_t type, Cluster *cls, PortGeneric *gen, TimeDelta_t l);
+  Resource(uint8_t type, Cluster *cls, PortGeneric *gen, TimeDelta_t l, uint32_t cpuid);
 
   void setStats(const DInst *dinst);
 
@@ -145,7 +143,7 @@ protected:
   };
   FailType *lf;
 public:
-  MemReplay(uint8_t type, Cluster *cls, PortGeneric *gen, StoreSet *ss, TimeDelta_t l);
+  MemReplay(uint8_t type, Cluster *cls, PortGeneric *gen, StoreSet *ss, TimeDelta_t l, uint32_t cpuid);
 
 };
 
@@ -158,6 +156,8 @@ protected:
   LSQ           *lsq;
 
   GStatsCntr    stldViolations;
+
+  bool          LSQlateAlloc;
 
   MemResource(uint8_t type, Cluster *cls, PortGeneric *aGen, LSQ *lsq, StoreSet *ss, TimeDelta_t l, GMemorySystem *ms, int32_t id, const char *cad);
 public:
@@ -219,7 +219,7 @@ private:
 
 protected:
 public:
-  FUGeneric(uint8_t type, Cluster *cls, PortGeneric *aGen, TimeDelta_t l);
+  FUGeneric(uint8_t type, Cluster *cls, PortGeneric *aGen, TimeDelta_t l, uint32_t cpuid);
 
   StallCause canIssue(DInst  *dinst);
   void       executing(DInst *dinst);
@@ -236,7 +236,7 @@ private:
 
 protected:
 public:
-  FUBranch(uint8_t type, Cluster *cls, PortGeneric *aGen, TimeDelta_t l, int32_t mb, bool dom);
+  FUBranch(uint8_t type, Cluster *cls, PortGeneric *aGen, TimeDelta_t l, uint32_t cpuid, int32_t mb, bool dom);
 
   StallCause canIssue(DInst  *dinst);
   void       executing(DInst *dinst);

@@ -103,7 +103,7 @@ private:
 
     virtual ~ParserBase();
     
-	  value_type  Eval() const;
+    value_type  Eval() const;
     value_type* Eval(int &nStackSize) const;
     void Eval(value_type *results, int nBulkSize);
 
@@ -178,7 +178,7 @@ private:
                 const string_type &a_strTok = string_type() ) const;
 
  protected:
-	  
+    
     void Init();
 
     virtual void InitCharSets() = 0;
@@ -282,7 +282,7 @@ private:
     mutable stringbuf_type  m_vStringBuf; ///< String buffer, used for storing string function arguments
     stringbuf_type  m_vStringVarBuf;
 
-    std::auto_ptr<token_reader_type> m_pTokenReader; ///< Managed pointer to the token reader object.
+    std::unique_ptr<token_reader_type> m_pTokenReader; ///< Managed pointer to the token reader object.
 
     funmap_type  m_FunDef;         ///< Map of function names and pointers.
     funmap_type  m_PostOprtDef;    ///< Postfix operator callbacks

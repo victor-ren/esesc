@@ -847,7 +847,7 @@ namespace mu
 
       // long formula (Reference: Matlab)
       iStat += EqnTest( _T("1+2-3*4/5^6*(2*(1-5+(3*7^9)*(4+6*7-3)))+12"), -7995810.09926, true);
-	  
+    
       if (iStat==0) 
         mu::console() << _T("passed") << endl;  
       else 
@@ -1221,7 +1221,7 @@ namespace mu
 
       try
       {
-        std::auto_ptr<Parser> p1;
+        std::unique_ptr<Parser> p1;
         Parser  p2, p3;   // three parser objects
                           // they will be used for testing copy and assihnment operators
         // p1 is a pointer since i'm going to delete it in order to test if

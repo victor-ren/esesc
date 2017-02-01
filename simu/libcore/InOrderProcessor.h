@@ -52,7 +52,7 @@ struct SMTFetch {
   SMTFetch() {
     fe = 0;
     smt_lastTime = 0;
-    smt_cnt      = 0;
+    smt_cnt      = 1;
     smt_active   = 1;
     smt_turn     = 0;
   };
@@ -76,8 +76,6 @@ private:
   //DInst *RAT[LREG_MAX];
   DInst **RAT;
 
-  FastQueue<DInst *> rROB; // ready/retiring/executed ROB
-
   void fetch(FlowID fid);
 protected:
   ClusterManager clusterManager;
@@ -94,6 +92,7 @@ public:
   virtual ~InOrderProcessor();
 
   void       executing(DInst *dinst);
+  void       executed(DInst *dinst);
   LSQ *getLSQ() { return &lsq; }
   void replay(DInst *dinst);
   bool isFlushing() {

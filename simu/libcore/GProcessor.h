@@ -148,6 +148,7 @@ class GProcessor {
 
     GMemorySystem *getMemorySystem() const { return memorySystem; }
     virtual void executing(DInst *dinst) = 0;
+    virtual void executed(DInst *dinst) = 0;
     virtual LSQ *getLSQ() = 0;
     virtual bool isFlushing() = 0;
     virtual bool isReplayRecovering() = 0;
@@ -155,7 +156,11 @@ class GProcessor {
 
     virtual void replay(DInst *target) { };// = 0;
 
-    bool isROBEmpty() const { return ROB.empty() && rROB.empty(); }
+    bool isROBEmpty() const { return(ROB.empty() && rROB.empty()); }
+    int getROBsize() const { return(ROB.size() + rROB.size()); }
+    void drain() {
+      retire();
+    }
 
     // Returns the maximum number of flows this processor can support
     FlowID getMaxFlows(void) const { return maxFlows; }
@@ -179,11 +184,14 @@ class GProcessor {
       active = true;
     }
     void clearActive() {
+      I(isROBEmpty());
       active = false;
     }
     bool isActive() const { return active; }
 
     void setWallClock(bool en=true) {
+
+//FIXME: Periods of no fetch do not advance clock. 
 
       trackactivity();
 
@@ -193,6 +201,7 @@ class GProcessor {
       lastWallClock = globalClock;
       wallClock->inc(en);
     }
+    static Time_t getWallClock() { return lastWallClock; }
 
     void trackactivity(){
       if (activeclock_end == (lastWallClock-1)){

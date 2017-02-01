@@ -213,6 +213,18 @@ public:
 
 };
 
+class BPMiss : public BPred {
+private:
+protected:
+public:
+  BPMiss(int32_t i, const char *section, const char *sname)
+    :BPred(i, section, sname, "Miss") {
+    // Done
+  }
+
+  PredType predict(DInst *dinst, bool doUpdate, bool doStats);
+};
+
 class BPNotTakenEnhanced : public BPred {
 private:
   BPBTB btb;
@@ -656,8 +668,8 @@ class BPTage : public BPred {
       ,wTag(false)
       ,nwTag(false)
       ,unconditional(false)
-      ,usedTagged(false)
       ,usedBimodal(false)
+      ,usedTagged(false)
       ,usedStandard(false)
       ,usedAlt(false)
       {
@@ -671,11 +683,12 @@ class BPTage : public BPred {
       AddrType *ch_i_comp;
       AddrType *ch_t0_comp;
       AddrType *ch_t1_comp;
-      bool actuallyTaken, predictTaken, altTaken;	
-      bool tagePrediction, hitBank, altBank;		
-      bool bimodalHighConfidence, bimodalMediumConfidence, bimodalLowConfidence;
       bool highConfidence, mediumConfidence, lowConfidence;
-      bool sTag, nsTag, nwTag, wTag;
+      bool predictTaken, altTaken;	
+      bool tagePrediction, hitBank, altBank;		
+      bool actuallyTaken;
+      bool bimodalHighConfidence, bimodalMediumConfidence, bimodalLowConfidence;
+      bool sTag, nsTag, wTag, nwTag;
       bool unconditional;				
       bool usedBimodal, usedTagged, usedStandard, usedAlt;
 

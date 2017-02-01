@@ -46,6 +46,12 @@ PortManagerBanked::PortManagerBanked(const char *section, MemObj *_mobj)
     ncDelay = missDelay;
   }
 
+	if (SescConf->checkInt(section, "ncDelay")) {
+    ncDelay = SescConf->getInt(section, "ncDelay");
+  }else{
+    ncDelay = missDelay;
+  }
+
 	dataDelay  = hitDelay-missDelay;
 	tagDelay   = hitDelay-dataDelay;
 
@@ -91,7 +97,7 @@ PortManagerBanked::PortManagerBanked(const char *section, MemObj *_mobj)
   if (SescConf->checkInt(section,"recvFillWidth")) {
     recvFillWidth = SescConf->getInt(section,"recvFillWidth");
     SescConf->isPower2(section,"recvFillWidth");
-    SescConf->isBetween(section,"recvFillWidth",1,bankSize);
+    SescConf->isBetween(section,"recvFillWidth",1,lineSize);
   }else{
     recvFillWidth = lineSize;
   }

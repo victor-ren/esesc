@@ -40,7 +40,7 @@
 
 #include <limits.h>
 
-#define MEM_TSO 1
+//#define MEM_TSO 1
 //#define MEM_TSO2 1
 #include "Resource.h"
 
@@ -56,28 +56,28 @@
 #include "TaskHandler.h"
 
 //#define USE_PNR
+#define LSQ_LATE_EXECUTED 1
 
 /* }}} */
 
-Resource::Resource(uint8_t type, Cluster *cls, PortGeneric *aGen, TimeDelta_t l)
+Resource::Resource(uint8_t type, Cluster *cls, PortGeneric *aGen, TimeDelta_t l, uint32_t cpuid)
   /* constructor {{{1 */
   : cluster(cls)
   ,gen(aGen)
-  ,gproc(cls->getGProcessor())
-  ,avgRenameTime  ("P(%d)_%s_%d_avgRenameTime" ,cls->getGProcessor()->getID(), cls->getName(),type )
-  ,avgIssueTime   ("P(%d)_%s_%d_avgIssueTime"  ,cls->getGProcessor()->getID(), cls->getName(),type )
-  ,avgExecuteTime ("P(%d)_%s_%d_avgExecuteTime",cls->getGProcessor()->getID(), cls->getName(),type )
-  ,avgRetireTime  ("P(%d)_%s_%d_avgRetireTime" ,cls->getGProcessor()->getID(), cls->getName(),type )
+  ,avgRenameTime  ("P(%d)_%s_%d_avgRenameTime" ,cpuid, cls->getName(),type )
+  ,avgIssueTime   ("P(%d)_%s_%d_avgIssueTime"  ,cpuid, cls->getName(),type )
+  ,avgExecuteTime ("P(%d)_%s_%d_avgExecuteTime",cpuid, cls->getName(),type )
+  ,avgRetireTime  ("P(%d)_%s_%d_avgRetireTime" ,cpuid, cls->getName(),type )
   ,lat(l)
   ,usedTime(0)
-  ,coreid(cls->getGProcessor()->getID())
+  ,coreid(cpuid)
 {
   I(cls);
   if(gen)
     gen->subscribe();
 
-  const char *str = SescConf->getCharPtr("cpusimu", "type", cls->getGProcessor()->getID());
-  if (strcasecmp(str,"inorder")!=0)
+  const char *str = SescConf->getCharPtr("cpusimu", "type", cpuid);
+  if (strcasecmp(str,"inorder")==0)
     inorder = true;
   else
     inorder = false;
@@ -119,7 +119,7 @@ Resource::~Resource()
 
 MemResource::MemResource(uint8_t type, Cluster *cls, PortGeneric *aGen, LSQ *_lsq, StoreSet *ss, TimeDelta_t l, GMemorySystem *ms, int32_t id, const char *cad)
   /* constructor {{{1 */
-  : MemReplay(type, cls, aGen, ss, l)
+  : MemReplay(type, cls, aGen, ss, l, id)
   ,firstLevelMemObj(ms->getDL1())
   ,memorySystem(ms)
   ,lsq(_lsq)
@@ -139,8 +139,8 @@ MemResource::MemResource(uint8_t type, Cluster *cls, PortGeneric *aGen, LSQ *_ls
 /* }}} */
 
 
-MemReplay::MemReplay(uint8_t type, Cluster *cls, PortGeneric *gen, StoreSet *ss, TimeDelta_t l)
-  :Resource(type, cls, gen, l)
+MemReplay::MemReplay(uint8_t type, Cluster *cls, PortGeneric *gen, StoreSet *ss, TimeDelta_t l, uint32_t cpuid)
+  :Resource(type, cls, gen, l, cpuid)
    ,lfSize(8)
    ,storeset(ss)
 {
@@ -296,7 +296,9 @@ StallCause FULoad::canIssue(DInst *dinst) {
   storeset->insert(dinst);
 
   lsq->decFreeEntries();
-  freeEntries--;
+
+  if (!LSQlateAlloc)
+    freeEntries--;
   return NoStall;
 }
 /* }}} */
@@ -304,15 +306,66 @@ StallCause FULoad::canIssue(DInst *dinst) {
 void FULoad::executing(DInst *dinst) {
   /* executing {{{1 */
 
+#ifndef LSQ_LATE_EXECUTED
+  if (LSQlateAlloc)
+    freeEntries--;
+#endif
+
   cluster->executing(dinst);
   Time_t when = gen->nextSlot(dinst->getStatsFlag())+lat;
+
+#if 0
+  static AddrType last_addr[4096];
+  static AddrType last_xor[4096];
+  static AddrType last_pc[4096];
+  AddrType addr  = dinst->getAddr();
+  AddrType haddr = addr>>5;
+  haddr          = (haddr ^ (haddr>>5) ) & 4095;
+
+  AddrType pc   = dinst->getPC()>>2;
+  AddrType hpc1 = (pc^(pc>>5)^(pc>>11)) & 4095;
+  AddrType hpc2 = (pc^pc>>7) & 255;
+
+  AddrType laddr = last_addr[hpc1];
+  int delta = addr-laddr;
+  bool hit  = (last_pc[hpc1] == hpc2);
+
+  AddrType xor2    = last_xor[hpc1] ^ (laddr ^ addr);
+
+  last_addr[hpc1]  = addr;
+  last_xor[hpc1]   = laddr ^ addr;
+  last_pc[hpc1]    = hpc2;
+
+  fprintf(stderr,"a=");
+  for(int i=0;i<20;i++) {
+    int b= (addr & (1<<i))?1:0;
+    if (i==5 || i==11)
+      fprintf(stderr,"_");
+    fprintf(stderr,"%d",b);
+  }
+  fprintf(stderr," x=");
+  for(int i=0;i<20;i++) {
+    if (i==5 || i==11)
+      fprintf(stderr,"_");
+    int b= ((laddr ^ addr) & (1<<i))?1:0;
+    fprintf(stderr,"%d",b);
+  }
+  fprintf(stderr," x2=");
+  for(int i=0;i<20;i++) {
+    if (i==5 || i==11)
+      fprintf(stderr,"_");
+    int b= (xor2 & (1<<i))?1:0;
+    fprintf(stderr,"%d",b);
+  }
+  MSG(" pc=%llx %llx %d %s",(long)dinst->getPC(), (long)dinst->getAddr(), delta,hit?"H":"M");
+#endif
 
   DInst *qdinst = lsq->executing(dinst);
   I(qdinst==0);
   if (qdinst) {
     I(qdinst->getInst()->isStore());
-    gproc->replay(dinst);
-    if(!gproc->isFlushing())
+    dinst->getGProc()->replay(dinst);
+    if(!dinst->getGProc()->isFlushing())
       stldViolations.inc(dinst->getStatsFlag());
 
     storeset->stldViolation(qdinst,dinst);
@@ -355,6 +408,11 @@ void FULoad::cacheDispatched(DInst *dinst) {
 void FULoad::executed(DInst* dinst) {
   /* executed {{{1 */
 
+#ifdef LSQ_LATE_EXECUTED
+  if (LSQlateAlloc)
+    freeEntries--;
+#endif
+
   storeset->remove(dinst);
 
   cluster->executed(dinst);
@@ -391,7 +449,7 @@ bool FULoad::retire(DInst *dinst, bool flushing)
   if (DL1->Invalid(dinst->getAddr())) {
     //MSG("Sync head/tail @%lld",globalClock);
     tso2Replay.inc(dinst->getStatsFlag());
-    gproc->replay(dinst);
+    dinst->getGProc()->replay(dinst);
 #if 0
     EmulInterface *eint = TaskHandler::getEmul(coreid);
     eint->syncHeadTail( coreid );
@@ -434,6 +492,10 @@ FUStore::FUStore(uint8_t type, Cluster *cls, PortGeneric *aGen, LSQ *_lsq, Store
   enableDcache = SescConf->getBool("cpusimu", "enableDcache", id);
   scbSize      = SescConf->getInt("cpusimu", "scbSize", id);
   scbEntries   = scbSize;
+  if (SescConf->checkBool("cpusimu", "LSQlateAlloc",id))
+    LSQlateAlloc = SescConf->getBool("cpusimu", "LSQlateAlloc",id);
+  else
+    LSQlateAlloc = false;
 
   const char *dl1_section = DL1->getSection();
   int bsize               = SescConf->getInt(dl1_section,"bsize");
@@ -475,8 +537,8 @@ void FUStore::executing(DInst *dinst) {
   if (!dinst->getInst()->isStoreAddress()) {
     DInst *qdinst = lsq->executing(dinst);
     if (qdinst) {
-      gproc->replay(qdinst);
-      if(!gproc->isFlushing())
+      dinst->getGProc()->replay(qdinst);
+      if(!dinst->getGProc()->isFlushing())
         stldViolations.inc(dinst->getStatsFlag());
       storeset->stldViolation(qdinst,dinst);
     }
@@ -625,9 +687,9 @@ bool FUStore::retire(DInst *dinst, bool flushing) {
 
 /***********************************************/
 
-FUGeneric::FUGeneric(uint8_t type, Cluster *cls ,PortGeneric *aGen ,TimeDelta_t l )
+FUGeneric::FUGeneric(uint8_t type, Cluster *cls ,PortGeneric *aGen ,TimeDelta_t l ,uint32_t cpuid)
   /* constructor {{{1 */
-  :Resource(type, cls, aGen, l)
+  :Resource(type, cls, aGen, l, cpuid)
    {
 }
 /* }}} */
@@ -665,16 +727,6 @@ void FUGeneric::executing(DInst *dinst) {
 
 void FUGeneric::executed(DInst *dinst) {
   /* executed {{{1 */
-#if 0
-  if (dinst->getPC() == 1073741832) {
-    //MSG("@%lld Scheduling callback for PE[%d] Warp [%d] pc 1073741832 at @%lld",(long long int)globalClock,dinst->getPE(), dinst->getWarpID(), (long long int)gen->nextSlot(dinst->getStatsFlag())+lat);
-    MSG("@%lld marking executed for FID[%d] PE[%d] Warp [%d] pc 1073741832"
-        ,(long long int)globalClock
-        ,dinst->getFlowId()
-        ,dinst->getPE()
-        , dinst->getWarpID());
-  }
-#endif
   cluster->executed(dinst);
   dinst->markPerformed();
 }
@@ -705,9 +757,9 @@ void FUGeneric::performed(DInst *dinst) {
 
 /***********************************************/
 
-FUBranch::FUBranch(uint8_t type, Cluster *cls, PortGeneric *aGen, TimeDelta_t l, int32_t mb, bool dom)
+FUBranch::FUBranch(uint8_t type, Cluster *cls, PortGeneric *aGen, TimeDelta_t l, uint32_t cpuid, int32_t mb, bool dom)
   /* constructor {{{1 */
-  :Resource(type, cls, aGen, l)
+  :Resource(type, cls, aGen, l, cpuid)
   ,freeBranches(mb) 
   ,drainOnMiss(dom) {
   I(freeBranches>0);
@@ -775,7 +827,7 @@ void FUBranch::performed(DInst *dinst) {
 
 FURALU::FURALU(uint8_t type, Cluster *cls ,PortGeneric *aGen ,TimeDelta_t l, int32_t id)
   /* constructor {{{1 */
-  :Resource(type, cls, aGen, l)
+  :Resource(type, cls, aGen, l, id)
   ,dmemoryBarrier("P(%d)_%s_dmemoryBarrier",id,cls->getName())
   ,imemoryBarrier("P(%d)_%s_imemoryBarrier",id,cls->getName())
 {
@@ -807,7 +859,7 @@ StallCause FURALU::canIssue(DInst *dinst)
   }else if (!dinst->getInst()->hasDstRegister()
             && !dinst->getInst()->hasSrc1Register()
             && !dinst->getInst()->hasSrc2Register()) {
-    if (gproc->isROBEmpty())
+    if (dinst->getGProc()->isROBEmpty())
       return NoStall;
     if (dinst->getAddr() == 0xbeefbeef)
       imemoryBarrier.inc(dinst->getStatsFlag());

@@ -62,12 +62,25 @@ OoOProcessor::OoOProcessor(GMemorySystem *gm, CPU_t i)
   ,pipeQ(i)
   ,lsq(i, SescConf->checkInt("cpusimu", "maxLSQ",i)?SescConf->getInt("cpusimu", "maxLSQ",i):32768) // 32K (unlimited or fix)
   ,retire_lock_checkCB(this)
-  ,clusterManager(gm, this)
+  ,clusterManager(gm, i, this)
   ,avgFetchWidth("P(%d)_avgFetchWidth",i)
+#ifdef TRACK_FORWARDING
+  ,avgNumSrc("P(%d)_avgNumSrc",i)
+  ,avgNumDep("P(%d)_avgNumDep",i)
+  ,fwd0done0("P(%d)_fwd0done0",i)
+  ,fwd1done0("P(%d)_fwd1done0",i)
+  ,fwd1done1("P(%d)_fwd1done1",i)
+  ,fwd2done0("P(%d)_fwd2done0",i)
+  ,fwd2done1("P(%d)_fwd2done1",i)
+  ,fwd2done2("P(%d)_fwd2done2",i)
+#endif
   ,codeProfile("P(%d)_prof",i)
 {
   bzero(RAT,sizeof(DInst*)*LREG_MAX);
   bzero(serializeRAT,sizeof(DInst*)*LREG_MAX);
+#ifdef TRACK_FORWARDING
+  bzero(fwdDone, sizeof(Time_t)*LREG_MAX);
+#endif
 
   spaceInInstQueue = InstQueueSize;
 
@@ -80,6 +93,7 @@ OoOProcessor::OoOProcessor(GMemorySystem *gm, CPU_t i)
   busy             = false;
   flushing         = false;
   replayRecovering = false;
+  getStatsFlag     = false;
   replayID         = 0;
 
   last_state.dinst_ID = 0xdeadbeef;
@@ -143,16 +157,16 @@ bool OoOProcessor::advance_clock(FlowID fid)
 
   fetch(fid);
 
-  if (!busy)
-    return false;
-
-  bool getStatsFlag = false;
   if( !ROB.empty() ) {
+    // Else use last time
     getStatsFlag = ROB.top()->getStatsFlag();
   }
 
   clockTicks.inc(getStatsFlag);
   setWallClock(getStatsFlag);
+
+  if (!busy)
+    return false;
 
   if (unlikely(throttlingRatio>1)) { 
     throttling_cntr++;
@@ -237,10 +251,54 @@ void OoOProcessor::executing(DInst *dinst)
 {
 #ifdef LATE_ALLOC_REGISTER
     if (dinst->getInst()->hasDstRegister())
-      nTotalRegs++;
+      nTotalRegs--;
+#endif
+#ifdef TRACK_FORWARDING
+    if (dinst->getStatsFlag()) {
+      const Instruction *inst = dinst->getInst();
+      avgNumSrc.sample(inst->getnsrc(), true);
+
+      int nForward = 0;
+      int nNeeded  = 0;
+      if (inst->hasSrc1Register()) {
+        nNeeded++;
+        Time_t t = fwdDone[inst->getSrc1()];
+        if ((t+2) >= globalClock)
+          nForward++;
+      }
+      if (inst->hasSrc2Register()) {
+        nNeeded++;
+        Time_t t = fwdDone[inst->getSrc2()];
+        if ((t+2) >= globalClock)
+          nForward++;
+      }
+
+      if (nNeeded == 0)
+        fwd0done0.inc(true);
+      else if (nNeeded == 1) {
+        if (nForward)
+          fwd1done1.inc(true);
+        else
+          fwd1done0.inc(true);
+      }else{
+        if (nForward==2)
+          fwd2done2.inc(true);
+        else if (nForward==1)
+          fwd2done1.inc(true);
+        else
+          fwd2done0.inc(true);
+      }
+    }
 #endif
 }
 // 1}}}
+//
+void OoOProcessor::executed(DInst *dinst) {
+#ifdef TRACK_FORWARDING
+  fwdDone[dinst->getInst()->getDst1()] = globalClock;
+  fwdDone[dinst->getInst()->getDst2()] = globalClock;
+#endif
+}
 
 StallCause OoOProcessor::addInst(DInst *dinst)
   /* rename (or addInst) a new instruction {{{1 */
@@ -271,9 +329,12 @@ StallCause OoOProcessor::addInst(DInst *dinst)
 
   // BEGIN INSERTION (note that cluster already inserted in the window)
   // dinst->dump("");
+
+#ifndef LATE_ALLOC_REGISTER
   if (inst->hasDstRegister()) {
     nTotalRegs--;
   }
+#endif
 
   //#if 1
   if(!scooreMemory){ //no dynamic serialization for tradcore
@@ -352,34 +413,42 @@ StallCause OoOProcessor::addInst(DInst *dinst)
 
   I(dinst->getCluster() != 0); // Resource::schedule must set the resource field
 
+  int n = 0;
   if( !dinst->isSrc2Ready() ) {
     // It already has a src2 dep. It means that it is solved at
     // retirement (Memory consistency. coherence issues)
     if( RAT[inst->getSrc1()] ) {
       RAT[inst->getSrc1()]->addSrc1(dinst);
+      n++;
       //MSG("addDep0 %8ld->%8lld %lld",RAT[inst->getSrc1()]->getID(), dinst->getID(), globalClock);
     }
   }else{
     if( RAT[inst->getSrc1()] ) {
       RAT[inst->getSrc1()]->addSrc1(dinst);
+      n++;
       //MSG("addDep1 %8ld->%8lld %lld",RAT[inst->getSrc1()]->getID(), dinst->getID(), globalClock);
     }
 
     if( RAT[inst->getSrc2()] ) {
       RAT[inst->getSrc2()]->addSrc2(dinst);
+      n++;
       //MSG("addDep2 %8ld->%8lld %lld",RAT[inst->getSrc2()]->getID(), dinst->getID(), globalClock);
     }
   }
+  avgNumSrc.sample(inst->getnsrc(), dinst->getStatsFlag());
+  avgNumDep.sample(n,dinst->getStatsFlag());
 
   dinst->setRAT1Entry(&RAT[inst->getDst1()]);
   dinst->setRAT2Entry(&RAT[inst->getDst2()]);
 
+  I(!dinst->isExecuted());
+
   dinst->getCluster()->addInst(dinst);
 
-  I(!dinst->isExecuted()); // NO 0 lat instructions (conf may allow it)
-
-  RAT[inst->getDst1()] = dinst;
-  RAT[inst->getDst2()] = dinst;
+  if(!dinst->isExecuted()) {
+    RAT[inst->getDst1()] = dinst;
+    RAT[inst->getDst2()] = dinst;
+  }
 
   I(dinst->getCluster());
 
@@ -402,7 +471,7 @@ void OoOProcessor::retire_lock_check()
     state.r_dinst    = rROB.top();
     state.r_dinst_ID = rROB.top()->getID();
   }
-  
+
   if (!ROB.empty()) {
     state.dinst    = ROB.top();
     state.dinst_ID = ROB.top()->getID();
@@ -411,13 +480,6 @@ void OoOProcessor::retire_lock_check()
   if (last_state == state && active) {
     I(0);
     MSG("Lock detected in P(%d), flushing pipeline", getID());
-    if (!rROB.empty()) {
-//      replay(rROB.top());
-    }
-    if (!ROB.empty()) {
-//      ROB.top()->markExecuted();
-//      replay(ROB.top());
-    }
   }
 
   last_state = state;
@@ -448,7 +510,6 @@ void OoOProcessor::retire()
 
   if(!rROB.empty()) {
     rrobUsed.sample(rROB.size(), rROB.top()->getStatsFlag());
-
 
 #ifdef ESESC_CODEPROFILE
     if (rROB.top()->getStatsFlag()) {
@@ -482,14 +543,13 @@ void OoOProcessor::retire()
     }
 
     I(dinst->isExecuted());
-    
+
     GI(!flushing, dinst->isExecuted());
     I(dinst->getCluster());
- 
+
     bool done = dinst->getCluster()->retire(dinst, flushing);
-    if( !done ) {
+    if( !done ) 
       break;
-    }
 
 #if 0
     static int conta=0;
@@ -501,7 +561,7 @@ void OoOProcessor::retire()
       dumpROB();
     }
 #endif
-    
+
     FlowID fid = dinst->getFlowId();
     if( dinst->isReplay() ) {
       flushing = true;
@@ -531,23 +591,17 @@ void OoOProcessor::retire()
     fprintf(stderr,"\n");
 #endif
 
-#ifndef LATE_ALLOC_REGISTER
     if (dinst->getInst()->hasDstRegister())
       nTotalRegs++;
-#endif
 
-#if 1 
     if (!dinst->getInst()->isStore()) // Stores can perform after retirement
       I(dinst->isPerformed());
 
-   if (dinst->isPerformed()) // Stores can perform after retirement
+    if (dinst->isPerformed()) // Stores can perform after retirement
       dinst->destroy(eint);
     else{
       eint->reexecuteTail(fid);
     }
-#else
-    dinst->destroy(eint);
-#endif 
 
     if (last_serialized == dinst)
       last_serialized = 0;
@@ -585,7 +639,7 @@ void OoOProcessor::replay(DInst *target)
   size_t fetch2rename = 0;
   fetch2rename += (InstQueueSize-spaceInInstQueue);
   fetch2rename += pipeQ.pipeLine.size();
-  
+
   nReplayInst.sample(fetch2rename+ROB.size(), target->getStatsFlag());
 }
 /* }}} */
@@ -593,6 +647,7 @@ void OoOProcessor::replay(DInst *target)
 void OoOProcessor::dumpROB()
   // {{{1 Dump rob statistics
 {
+#if 0
   uint32_t size = ROB.size();
   fprintf(stderr,"ROB: (%d)\n",size);
 
@@ -613,6 +668,7 @@ void OoOProcessor::dumpROB()
       printf("-----REPLAY--------\n");
     dinst->dump("");
   }
+#endif
 }
 // 1}}}
 

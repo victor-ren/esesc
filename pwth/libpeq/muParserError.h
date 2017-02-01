@@ -166,7 +166,7 @@ private:
     int m_iPos;               ///< Formula position related to the error 
     EErrorCodes m_iErrc;      ///< Error code
     const ParserErrorMsg &m_ErrMsg;
-};		
+};    
 
 } // namespace mu
 
