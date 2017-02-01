@@ -224,6 +224,9 @@ public:
   FlowID getFid(FlowID last_fid) {
     return emul->getFid(last_fid);
   }
+  void freeFid(FlowID last_fid) {
+    emul->freeFid(last_fid);
+  }
   void setFid(FlowID cpudid) {
     emul->setFid(cpudid);
   }

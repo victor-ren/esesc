@@ -135,7 +135,6 @@ void DInst::recycle() {
   I(nDeps == 0);    // No deps src
   I(first == 0);    // no dependent instructions
 
-  GI(isMarkAdd(), isMarkDel());
   dInstPool.in(this);
 }
 
@@ -145,8 +144,6 @@ void DInst::scrap(EmulInterface *eint) {
 
   I(eint);
   eint->reexecuteTail(fid);
-
-  GI(isMarkAdd(), isMarkDel());
 
   dInstPool.in(this);
 }
@@ -158,8 +155,6 @@ void DInst::destroy(EmulInterface *eint) {
   I(executed);
 
   I(first == 0);   // no dependent instructions
-
-  GI(isMarkAdd(), isMarkDel());
 
   I(eint);
   eint->reexecuteTail(fid);

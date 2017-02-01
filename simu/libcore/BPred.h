@@ -90,6 +90,7 @@ protected:
   GStatsCntr nMiss; // in their predict() function.
 
   int32_t addrShift;
+  int32_t maxCores;
 
   HistoryType calcHist(AddrType pc) const {
     HistoryType cid = pc>>2; // psudo-PC works, no need lower 2 bit

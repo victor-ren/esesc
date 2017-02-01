@@ -63,6 +63,7 @@ BPred::BPred(int32_t i, const char *sec, const char *sname, const char *name)
   }else{
     addrShift = 0;
   }
+  maxCores = SescConf->getRecordSize("","cpuemul");
 }
 
 BPred::~BPred() {
@@ -490,7 +491,8 @@ BP2level::BP2level(int32_t i, const char *section, const char *sname)
 
   I((l1Size & (l1Size - 1)) == 0); 
 
-  historyTable = new HistoryType[l1Size];
+
+  historyTable = new HistoryType[l1Size*maxCores];
   I(historyTable);
 }
 
@@ -510,6 +512,9 @@ PredType BP2level::predict(DInst *dinst, bool doUpdate, bool doStats)
   bool taken = dinst->isTaken();
   HistoryType iID     = calcHist(dinst->getPC());
   uint16_t    l1Index = iID & l1SizeMask;
+  l1Index = l1Index + dinst->getFlowId() * l1Size;
+  I(l1Index < (maxCores * l1Size));
+
   HistoryType l2Index = historyTable[l1Index];
 
   if (useDolc)
@@ -524,7 +529,7 @@ PredType BP2level::predict(DInst *dinst, bool doUpdate, bool doStats)
       nhist = ((l2Index << 1) | ((iID>>2 & 1)^(taken?1:0))) & historyMask;
     historyTable[l1Index] = nhist;
   }
-  
+
   // calculate Table possition
   l2Index = ((l2Index ^ iID) & historyMask ) | (iID<<historySize);
 

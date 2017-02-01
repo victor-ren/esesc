@@ -162,8 +162,6 @@ FlowID TaskHandler::resumeThread(FlowID uid, FlowID fid) {
   //I(uid<65535); // No more than 65K threads for the moment
   pthread_mutex_lock (&mutex);
 
-  //FlowID fid = emulas[0]->getFid(last_fid); 
-
   I(allmaps[fid].fid == fid);
   I(!allmaps[fid].active);
 

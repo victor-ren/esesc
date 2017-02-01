@@ -111,34 +111,33 @@ extern "C" void QEMUReader_syscall(uint32_t num, uint64_t usecs, uint32_t fid)
   qsamplerlist[fid]->syscall(num, usecs, fid);
 }
 
-#if 1
 extern "C" FlowID QEMUReader_resumeThreadGPU(FlowID uid) {
   return(qsamplerlist[uid]->resumeThread(uid));
 }
 
-extern "C" FlowID QEMUReader_cpu_start(uint32_t cpuid) { 
+extern "C" FlowID QEMUReader_cpu_start(uint32_t cpuid) {
   qsamplerlist[0]->setFid(cpuid); 
   //MSG("cpu_start %d",cpuid);
   return(qsamplerlist[cpuid]->resumeThread(cpuid, cpuid));
 }
-extern "C" FlowID QEMUReader_cpu_stop(uint32_t cpuid) { 
+extern "C" FlowID QEMUReader_cpu_stop(uint32_t cpuid) {
   //MSG("cpu_stop %d",cpuid);
   qsamplerlist[cpuid]->pauseThread(cpuid);
 }
 
-extern "C" FlowID QEMUReader_resumeThread(FlowID uid, FlowID last_fid) { 
-  uint32_t fid = qsamplerlist[0]->getFid(last_fid); 
+extern "C" FlowID QEMUReader_resumeThread(FlowID uid, FlowID last_fid) {
+  uint32_t fid = qsamplerlist[0]->getFid(last_fid);
   MSG("resume %d -> %d",last_fid,fid);
   return(qsamplerlist[fid]->resumeThread(uid, fid));
 }
 extern "C" void QEMUReader_pauseThread(FlowID fid) {
   qsamplerlist[fid]->pauseThread(fid);
+  qsamplerlist[0]->freeFid(fid);
 }
 
 extern "C" void QEMUReader_setFlowCmd(bool* flowStatus) {
 
 }
-#endif
 
 extern "C" int32_t QEMUReader_setnoStats(FlowID fid){
   return 0;
