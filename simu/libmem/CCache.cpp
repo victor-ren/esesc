@@ -302,7 +302,7 @@ CCache::Line *CCache::allocateLine(AddrType addr, MemRequest *mreq)
   I(mreq->getAddr() == addr);
 
   I(cacheBank->findLineDebug(addr) == 0);
-  Line *l = cacheBank->fillLine(addr, rpl_addr);
+  Line *l = cacheBank->fillLine_replace(addr, rpl_addr, mreq->getPC());
   lineFill.inc(mreq->getStatsFlag());
 
   I(l); // Ignore lock guarantees to find line
@@ -684,7 +684,7 @@ void CCache::doReq(MemRequest *mreq)
     return;
   }
 
-  Line *l = cacheBank->readLine(addr);
+  Line *l = cacheBank->readLine(addr, mreq->getPC());
   if (nlprefetch!=0 && !retrying && !mreq->isPrefetch()) {
     for(int i=0;i<nlprefetch;i++) {
       tryPrefetch(addr + (i+1)*lineSize, mreq->getStatsFlag());
@@ -794,7 +794,7 @@ void CCache::doDisp(MemRequest *mreq)
 
   AddrType addr = mreq->getAddr();
 
-  Line *l=cacheBank->findLineNoEffect(addr);
+  Line *l=cacheBank->findLineNoEffect(addr, mreq->getPC() );
   if (l==0 && victim && !mreq->isPrefetch()) {
     MTRACE("doDisp allocateLine");
     l = allocateLine(addr,mreq);
@@ -834,7 +834,7 @@ void CCache::doReqAck(MemRequest *mreq)
 
   if (!mreq->isNonCacheable()) {
     AddrType addr = mreq->getAddr();
-    Line *l = cacheBank->readLine(addr);
+    Line *l = cacheBank->readLine(addr, mreq->getPC());
     // It could be l!=0 if we requested a check in the lower levels to change state.
     if (l == 0) {
       if (!victim) {
@@ -1127,7 +1127,7 @@ TimeDelta_t CCache::ffread(AddrType addr)
   if (l)
     return 1;   // done!
 
-  l = cacheBank->fillLine(addr, addr_r);
+  l = cacheBank->fillLine_replace(addr, addr_r);
   l->setExclusive(); // WARNING, can create random inconsistencies (no inv others)
 
   return router->ffread(addr) + 1;
@@ -1142,7 +1142,7 @@ TimeDelta_t CCache::ffwrite(AddrType addr)
   Line *l = cacheBank->writeLine(addr);
   if (l) {
   }else{
-    l = cacheBank->fillLine(addr, addr_r);
+    l = cacheBank->fillLine_replace(addr, addr_r);
   }
   if (router->isTopLevel())
     l->setModified(); // WARNING, can create random inconsistencies (no inv others)

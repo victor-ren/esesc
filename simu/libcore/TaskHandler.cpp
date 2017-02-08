@@ -43,7 +43,7 @@
 /* }}} */
 
 std::vector<TaskHandler::EmulSimuMapping >   TaskHandler::allmaps;
-bool TaskHandler::terminate_all;
+volatile bool TaskHandler::terminate_all;
 pthread_mutex_t TaskHandler::mutex;
 
 FlowID* TaskHandler::running;
@@ -303,12 +303,11 @@ void TaskHandler::removeFromRunning(FlowID fid){
 void TaskHandler::pauseThread(FlowID fid){
   /* deactivae an fid {{{1 */
 
+  fprintf(stderr,"P");
   I(allmaps[fid].fid == fid);
   I(fid<65535);
-
-  if (allmaps[fid].active){
-    emulas[fid]->freeFid(fid); // FIXME: no vector for emulas?
-  }
+  if (terminate_all)
+    return;
 
   pthread_mutex_lock (&mutex);
 
@@ -338,7 +337,7 @@ void TaskHandler::terminate()
 {
   terminate_all = true;
 
-  //MSG("TaskHandler::terminate");
+  MSG("TaskHandler::terminate");
 
   for(size_t i = 0; i<allmaps.size();i++) {
     if (!allmaps[i].active)
@@ -351,9 +350,9 @@ void TaskHandler::terminate()
 
   //GStats::stopAll(1);
 
-  pthread_mutex_lock (&mutex);
+  //pthread_mutex_lock (&mutex);
   running_size = 0;
-  pthread_mutex_unlock (&mutex);
+  //pthread_mutex_unlock (&mutex);
 
 }
 /* }}} */
@@ -374,6 +373,8 @@ void TaskHandler::boot()
     if (unlikely(running_size == 0)) {
       bool needIncreaseClock = false;
       for(AllMapsType::iterator it=allmaps.begin();it!=allmaps.end();it++) {
+        if (it->emul==0)
+          continue;
         EmuSampler::EmuMode m = (*it).emul->getSampler()->getMode();
         if (m == EmuSampler::EmuDetail || m == EmuSampler::EmuTiming) {
           needIncreaseClock = true;
@@ -401,6 +402,10 @@ void TaskHandler::boot()
           all_failed = true;
           for(size_t i =0;i<running_size;i++) {
             FlowID fid = running[i];
+            if (allmaps[fid].emul==0) {
+              all_failed = false;
+              continue;
+            }
             bool p = allmaps[fid].emul->populate(fid);
             if (!p)
               one_failed = true;
@@ -419,9 +424,11 @@ void TaskHandler::boot()
               continue;
             }
 
-            bool p = allmaps[fid].emul->populate(fid);
-            if (!p)
-              pauseThread(fid);
+            if (allmaps[fid].emul) {
+              bool p = allmaps[fid].emul->populate(fid);
+              if (!p)
+                pauseThread(fid);
+            }
           }
           break;
         }

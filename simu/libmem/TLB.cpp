@@ -150,6 +150,7 @@ void TLB::doReq(MemRequest *mreq)
         lowerCache,
         mreq->getStatsFlag(),
         calcPage1Addr(mreq->getAddr()),
+        0xbeefbeef, // PC signature for TLB
         readPage1CB::create(this,mreq)
         );
   }
@@ -221,6 +222,7 @@ void TLB::readPage1(MemRequest *mreq)
       lowerCache,
       mreq->getStatsFlag(),
       calcPage2Addr(mreq->getAddr()),
+      0xbeefbeef, // PC signature for TLB
       readPage2CB::create(this,mreq)
       );
 }
@@ -231,6 +233,7 @@ void TLB::readPage2(MemRequest *mreq)
       lowerCache,
       mreq->getStatsFlag(),
       calcPage3Addr(mreq->getAddr()),
+      0xbeefbeef, // PC signature for TLB
       readPage3CB::create(this,mreq)
       );
 }

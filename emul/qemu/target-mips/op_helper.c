@@ -50,21 +50,33 @@ static void raise_exception(CPUMIPSState *env, uint32_t exception)
 #ifdef CONFIG_ESESC
 #include "esesc_qemu.h"
 
-long long int icount = 0;
+#define AtomicAdd(ptr,val) __sync_fetch_and_add(ptr, val)
+#define AtomicSub(ptr,val) __sync_fetch_and_sub(ptr, val)
 
+volatile long long int icount = 0;
+volatile long long int tcount = 0;
 
 void helper_esesc_dump() {
     CPUState *other_cs = first_cpu;
 
     CPU_FOREACH(other_cs) {
-        printf("cpuid=%d halted=%d\n",other_cs->fid, other_cs->halted);
+        printf("cpuid=%d halted=%d icount=%lld tcount=%lld\n",other_cs->fid, other_cs->halted,icount, tcount);
     }
 }
 
 void helper_esesc_ctrl(CPUMIPSState *env, uint64_t pc, uint64_t target, uint64_t op, uint64_t reg) {
 
+#if 0
+  static int conta=0;
+  if (conta++>100000) {
+    helper_esesc_dump();
+    conta=0;
+  }
+
+  AtomicAdd(&tcount,1);
+#endif
   if (icount>0) {
-    icount--;
+    AtomicSub(&icount,1);
     return;
   }
 
@@ -77,14 +89,16 @@ void helper_esesc_ctrl(CPUMIPSState *env, uint64_t pc, uint64_t target, uint64_t
   reg      = reg >> 8;
   int dest = reg & 0xFF;
 
-  icount = QEMUReader_queue_inst(pc, target, cpu->fid, op, src1, src2, dest, env);
+  AtomicAdd(&icount,QEMUReader_queue_inst(pc, target, cpu->fid, op, src1, src2, dest, env));
 }
 
 void helper_esesc_alu(CPUMIPSState *env, uint64_t pc, uint64_t op, uint64_t reg) {
 
-
+#if 0
+  AtomicAdd(&tcount,1);
+#endif
   if (icount>0) {
-    icount--;
+    AtomicSub(&icount,1);
     return;
   }
 
@@ -101,7 +115,7 @@ void helper_esesc_alu(CPUMIPSState *env, uint64_t pc, uint64_t op, uint64_t reg)
   // This will not be accurate but it'll be faster
   // Assuming that's why you are running in rabbit mode
 
-  icount = QEMUReader_queue_inst(pc, 0, cpu->fid, op, src1, src2, dest, env);
+  AtomicAdd(&icount,QEMUReader_queue_inst(pc, 0, cpu->fid, op, src1, src2, dest, env));
 }
 #endif
 

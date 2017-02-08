@@ -98,7 +98,7 @@ template<class State, class Addr_t>
 
   // findLine returns a cache line that has tag == addr, NULL otherwise
   virtual CacheLine *findLineNoEffectPrivate(Addr_t addr)=0;
-  virtual CacheLine *findLinePrivate(Addr_t addr, bool updateSHIP, Addr_t SHIP_signature)=0;
+  virtual CacheLine *findLinePrivate(Addr_t addr, Addr_t pc)=0;
   protected:
 
   CacheGeneric(uint32_t s, uint32_t a, uint32_t b, uint32_t u, bool xr)
@@ -130,7 +130,7 @@ template<class State, class Addr_t>
     delete this;
   }
 
-  virtual CacheLine *findLine2Replace(Addr_t addr,  bool updateSHIP, Addr_t SHIP_signature)=0;
+  virtual CacheLine *findLine2Replace(Addr_t addr, Addr_t pc)=0;
 
   // TO DELETE if flush from Cache.cpp is cleared.  At least it should have a
   // cleaner interface so that Cache.cpp does not touch the internals.
@@ -147,44 +147,44 @@ template<class State, class Addr_t>
 
   // Use this is for debug checks. Otherwise, a bad interface can be detected
 
-  CacheLine *findLineDebug(Addr_t addr, bool updateSHIP = false, Addr_t SHIP_signature = 0) {
+  CacheLine *findLineDebug(Addr_t addr, Addr_t pc = 0) {
     IS(goodInterface=true);
     CacheLine *line = findLine(addr); //SHIP stats will not be updated
     IS(goodInterface=false);
     return line;
   }
 
-  CacheLine *findLineNoEffect(Addr_t addr, bool updateSHIP = false, Addr_t SHIP_signature = 0) {
+  CacheLine *findLineNoEffect(Addr_t addr, Addr_t pc = 0) {
     IS(goodInterface=true);
     CacheLine *line = findLineNoEffectPrivate(addr); //SHIP stats will not be updated
     IS(goodInterface=false);
     return line;
   }
 
-  CacheLine *findLine(Addr_t addr, bool updateSHIP = false, Addr_t SHIP_signature = 0) {
-    return findLinePrivate(addr,updateSHIP,SHIP_signature);
+  CacheLine *findLine(Addr_t addr, Addr_t pc = 0) {
+    return findLinePrivate(addr,pc);
   }
 
-  CacheLine *readLine(Addr_t addr, bool updateSHIP = false, Addr_t SHIP_signature = 0) {
+  CacheLine *readLine(Addr_t addr, Addr_t pc = 0) {
 
     IS(goodInterface=true);
-    CacheLine *line = findLine(addr,updateSHIP,SHIP_signature);
+    CacheLine *line = findLine(addr,pc);
     IS(goodInterface=false);
 
     return line;
   }
 
-  CacheLine *writeLine(Addr_t addr, bool updateSHIP = false, Addr_t SHIP_signature = 0) {
+  CacheLine *writeLine(Addr_t addr, Addr_t pc = 0) {
 
     IS(goodInterface=true);
-    CacheLine *line = findLine(addr, updateSHIP, SHIP_signature);
+    CacheLine *line = findLine(addr, pc);
     IS(goodInterface=false);
 
     return line;
   }
 
-  CacheLine *fillLine(Addr_t addr, bool updateSHIP = false, Addr_t SHIP_signature = 0) {
-    CacheLine *l = findLine2Replace(addr, updateSHIP, SHIP_signature);
+  CacheLine *fillLine(Addr_t addr, Addr_t pc = 0) {
+    CacheLine *l = findLine2Replace(addr, pc);
     I(l);
     
     l->setTag(calcTag(addr));
@@ -192,8 +192,8 @@ template<class State, class Addr_t>
     return l;
   }
 
-  CacheLine *fillLine(Addr_t addr, Addr_t &rplcAddr, bool updateSHIP = false, Addr_t SHIP_signature = 0) {
-    CacheLine *l = findLine2Replace(addr, updateSHIP, SHIP_signature);
+  CacheLine *fillLine_replace(Addr_t addr, Addr_t &rplcAddr, Addr_t pc = 0) {
+    CacheLine *l = findLine2Replace(addr, pc);
     I(l);
     rplcAddr = 0;
     
@@ -265,7 +265,7 @@ protected:
   CacheAssoc(int32_t size, int32_t assoc, int32_t blksize, int32_t addrUnit, const char *pStr, bool xr);
 
   Line *findLineNoEffectPrivate(Addr_t addr);
-  Line *findLinePrivate(Addr_t addr, bool updateSHIP = false, Addr_t SHIP_signature = 0 );
+  Line *findLinePrivate(Addr_t addr, Addr_t pc = 0 );
 public:
   virtual ~CacheAssoc() {
     delete [] content;
@@ -279,7 +279,7 @@ public:
     return content[l];
   }
 
-  Line *findLine2Replace(Addr_t addr, bool updateSHIP = false, Addr_t SHIP_signature = 0);
+  Line *findLine2Replace(Addr_t addr, Addr_t pc = 0);
 };
 
 template<class State, class Addr_t>
@@ -300,7 +300,7 @@ protected:
   CacheDM(int32_t size, int32_t blksize, int32_t addrUnit, const char *pStr, bool xr);
 
   Line *findLineNoEffectPrivate(Addr_t addr);
-  Line *findLinePrivate(Addr_t addr, bool updateSHIP = false, Addr_t SHIP_signature = 0 );
+  Line *findLinePrivate(Addr_t addr, Addr_t pc = 0 );
 public:
   virtual ~CacheDM() {
     delete [] content;
@@ -314,7 +314,7 @@ public:
     return content[l];
   }
 
-  Line *findLine2Replace(Addr_t addr, bool updateSHIP = false, Addr_t SHIP_signature = 0);
+  Line *findLine2Replace(Addr_t addr, Addr_t pc = 0);
 };
 
 template<class State, class Addr_t>
@@ -335,7 +335,7 @@ protected:
   CacheDMSkew(int32_t size, int32_t blksize, int32_t addrUnit, const char *pStr);
 
   Line *findLineNoEffectPrivate(Addr_t addr);
-  Line *findLinePrivate(Addr_t addr, bool updateSHIP = false, Addr_t SHIP_signature = 0 );
+  Line *findLinePrivate(Addr_t addr, Addr_t pc = 0 );
 public:
   virtual ~CacheDMSkew() {
     delete [] content;
@@ -349,7 +349,7 @@ public:
     return content[l];
   }
 
-  Line *findLine2Replace(Addr_t addr, bool updateSHIP = false, Addr_t SHIP_signature = 0);
+  Line *findLine2Replace(Addr_t addr, Addr_t pc = 0);
 };
 
 template<class State, class Addr_t>
@@ -379,7 +379,7 @@ protected:
   CacheSHIP(int32_t size, int32_t assoc, int32_t blksize, int32_t addrUnit, const char *pStr, uint32_t shct_size = 13); //13 was the optimal size in the paper
 
   Line *findLineNoEffectPrivate(Addr_t addr);
-  Line *findLinePrivate(Addr_t addr, bool updateSHIP = false, Addr_t SHIP_signature = 0 );
+  Line *findLinePrivate(Addr_t addr, Addr_t pc = 0 );
 public:
   virtual ~CacheSHIP() {
     delete [] content;
@@ -394,7 +394,7 @@ public:
     return content[l];
   }
 
-  Line *findLine2Replace(Addr_t addr, bool updateSHIP = false, Addr_t SHIP_signature = 0);
+  Line *findLine2Replace(Addr_t addr, Addr_t pc = 0);
 };
 
 

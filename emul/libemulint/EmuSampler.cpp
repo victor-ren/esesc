@@ -225,7 +225,7 @@ void EmuSampler::beginTiming(EmuMode mod)
 {
   //I(stopJustCalled);
   stopJustCalled = false;
-  phasenInst         = 0;
+  // phasenInst         = 0;
   mode = mod;
 
   clock_gettime(CLOCK_REALTIME,&startTime);

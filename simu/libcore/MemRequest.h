@@ -236,6 +236,7 @@ protected:
     mreq->nonCacheable = true;
 		m->req(mreq);
   }
+#if 0
   static void sendReqRead(MemObj *m, bool doStats, AddrType addr, CallbackBase *cb=0
 #ifdef ENABLE_NBSD
       ,void *param=0
@@ -250,6 +251,7 @@ protected:
 #endif
 		m->req(mreq);
   }
+#endif
   static void sendReqReadPrefetch(MemObj *m, bool doStats, AddrType addr, CallbackBase *cb=0
 #ifdef ENABLE_NBSD
       ,void *param=0
@@ -315,7 +317,7 @@ protected:
 		m->req(mreq);
   }
 
-  static void sendReqWrite(MemObj *m, bool doStats, AddrType addr, CallbackBase *cb=0
+  static void sendReqWrite(MemObj *m, bool doStats, AddrType addr, AddrType pc, CallbackBase *cb=0
 #ifdef ENABLE_NBSD
       ,void *param=0
 #endif
@@ -327,6 +329,7 @@ protected:
 #ifdef ENABLE_NBSD
     mreq->param      = param;
 #endif
+    mreq->pc         = pc;
 		m->req(mreq);
   }
   static void sendReqWritePrefetch(MemObj *m, bool doStats, AddrType addr, CallbackBase *cb=0) {

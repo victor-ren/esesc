@@ -199,6 +199,7 @@ void FetchEngine::realfetch(IBucket *bucket, EmulInterface *eint, FlowID fid, in
     DInst *dinst = 0;
     dinst = eint->peekHead(fid);
     if (dinst == 0) {
+      fprintf(stderr,"Z");
       zeroDinst.inc(true);
       break;
     }
@@ -312,6 +313,8 @@ void FetchEngine::realfetch(IBucket *bucket, EmulInterface *eint, FlowID fid, in
       bool stall_fetch = processBranch(dinst, n2Fetch);
       if (stall_fetch) {
         DInst *dinstn = eint->peekHead(fid);
+        if (dinstn==0)
+          fprintf(stderr,"Z");
         if (dinstn && dinst->getAddr() && n2Fetch) { // Taken branch and next inst is delay slot
           if (dinstn->getPC() == (lastpc+4)) {
             eint->executeHead(fid);
@@ -372,7 +375,7 @@ void FetchEngine::realfetch(IBucket *bucket, EmulInterface *eint, FlowID fid, in
 
   if(enableICache && !bucket->empty()) {
     avgFetched.sample(FetchWidth - n2Fetch, bucket->top()->getStatsFlag());
-    MemRequest::sendReqRead(gms->getIL1(), bucket->top()->getStatsFlag(), bucket->top()->getPC(), &(bucket->markFetchedCB));
+    MemRequest::sendReqRead(gms->getIL1(), bucket->top()->getStatsFlag(), bucket->top()->getPC(), 0xdeaddead, &(bucket->markFetchedCB)); // 0xdeaddead as PC signature
   }else{
     bucket->markFetchedCB.schedule(IL1HitDelay);
 #if 0

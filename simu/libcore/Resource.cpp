@@ -603,7 +603,7 @@ bool FUStore::preretire(DInst *dinst, bool flushing) {
   scbMerge[(dinst->getAddr()>>lineSizeBits) & 1023]++;
 
   if (enableDcache && !pendingLine) {
-    MemRequest::sendReqWrite(firstLevelMemObj, dinst->getStatsFlag(), dinst->getAddr(), performedCB::create(this,dinst));
+    MemRequest::sendReqWrite(firstLevelMemObj, dinst->getStatsFlag(), dinst->getAddr(), dinst->getPC(), performedCB::create(this,dinst));
   }else{
     // Merge request if pending
     performed(dinst);

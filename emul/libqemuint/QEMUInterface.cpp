@@ -83,7 +83,8 @@ extern "C" uint64_t QEMUReader_queue_inst(uint64_t pc, uint64_t addr, uint16_t f
   //I(qsamplerlist[fid]->isActive(fid) || EmuSampler::isTerminated());
 
   //MSG("pc=%llx addr=%llx op=%d cpu=%d",pc,addr,op,fid);
-  return qsamplerlist[fid]->queue(pc,addr,fid,op,src1, src2, dest, LREG_InvalidOutput, dummy);
+  uint64_t res = qsamplerlist[fid]->queue(pc,addr,fid,op,src1, src2, dest, LREG_InvalidOutput, dummy);
+  return res;
 }
 
 extern "C" void QEMUReader_finish(uint32_t fid)

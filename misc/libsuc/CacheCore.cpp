@@ -250,7 +250,7 @@ typename CacheAssoc<State, Addr_t>::Line *CacheAssoc<State, Addr_t>::findLineNoE
 }
 
 template<class State, class Addr_t>
-typename CacheAssoc<State, Addr_t>::Line *CacheAssoc<State, Addr_t>::findLinePrivate(Addr_t addr, bool updateSHIP, Addr_t SHIP_signature)
+typename CacheAssoc<State, Addr_t>::Line *CacheAssoc<State, Addr_t>::findLinePrivate(Addr_t addr, Addr_t pc)
 {
   Addr_t tag = this->calcTag(addr);
 
@@ -300,7 +300,7 @@ typename CacheAssoc<State, Addr_t>::Line *CacheAssoc<State, Addr_t>::findLinePri
 
 template<class State, class Addr_t>
 typename CacheAssoc<State, Addr_t>::Line 
-*CacheAssoc<State, Addr_t>::findLine2Replace(Addr_t addr, bool updateSHIP, Addr_t SHIP_signature)
+*CacheAssoc<State, Addr_t>::findLine2Replace(Addr_t addr, Addr_t pc)
 { 
   Addr_t tag    = this->calcTag(addr);
   I(tag);
@@ -424,14 +424,14 @@ typename CacheDM<State, Addr_t>::Line *CacheDM<State, Addr_t>::findLineNoEffectP
 }
 
 template<class State, class Addr_t>
-typename CacheDM<State, Addr_t>::Line *CacheDM<State, Addr_t>::findLinePrivate(Addr_t addr, bool updateSHIP, Addr_t SHIP_signature)
+typename CacheDM<State, Addr_t>::Line *CacheDM<State, Addr_t>::findLinePrivate(Addr_t addr, Addr_t pc)
 {
   return findLineNoEffectPrivate(addr);
 }
 
 template<class State, class Addr_t>
 typename CacheDM<State, Addr_t>::Line 
-*CacheDM<State, Addr_t>::findLine2Replace(Addr_t addr, bool updateSHIP, Addr_t SHIP_signature)
+*CacheDM<State, Addr_t>::findLine2Replace(Addr_t addr, Addr_t pc)
 { 
   Addr_t tag = this->calcTag(addr);
   Line *line = content[this->calcIndex4Tag(tag)];
@@ -514,14 +514,14 @@ typename CacheDMSkew<State, Addr_t>::Line *CacheDMSkew<State, Addr_t>::findLineN
 }
 
 template<class State, class Addr_t>
-typename CacheDMSkew<State, Addr_t>::Line *CacheDMSkew<State, Addr_t>::findLinePrivate(Addr_t addr, bool updateSHIP, Addr_t SHIP_signature)
+typename CacheDMSkew<State, Addr_t>::Line *CacheDMSkew<State, Addr_t>::findLinePrivate(Addr_t addr, Addr_t pc)
 {
   return findLineNoEffectPrivate(addr);
 }
 
 template<class State, class Addr_t>
 typename CacheDMSkew<State, Addr_t>::Line 
-*CacheDMSkew<State, Addr_t>::findLine2Replace(Addr_t addr, bool updateSHIP, Addr_t SHIP_signature)
+*CacheDMSkew<State, Addr_t>::findLine2Replace(Addr_t addr, Addr_t pc)
 { 
   Addr_t tag1 = this->calcTag(addr);
   Line *line1 = content[this->calcIndex4Tag(tag1)];
@@ -663,7 +663,7 @@ typename CacheSHIP<State, Addr_t>::Line *CacheSHIP<State, Addr_t>::findLineNoEff
 }
 
 template<class State, class Addr_t>
-typename CacheSHIP<State, Addr_t>::Line *CacheSHIP<State, Addr_t>::findLinePrivate(Addr_t addr, bool updateSHIP, Addr_t SHIP_signature)
+typename CacheSHIP<State, Addr_t>::Line *CacheSHIP<State, Addr_t>::findLinePrivate(Addr_t addr, Addr_t pc)
 {
   Addr_t tag = this->calcTag(addr);
   Line **theSet = &content[this->calcIndex4Tag(tag)];
@@ -688,9 +688,9 @@ typename CacheSHIP<State, Addr_t>::Line *CacheSHIP<State, Addr_t>::findLinePriva
 
   I((*lineHit)->isValid());
   // Cache HIT
-  if (updateSHIP){
-    //SHIP_signature is the PC or the memory address, not the usable signature
-    Addr_t signature = (SHIP_signature ^ ((SHIP_signature>>1) + ((SHIP_signature & 0xFFFFFFFF))));
+  if (true){
+    //pc is the PC or the memory address, not the usable signature
+    Addr_t signature = (pc ^ ((pc>>1) + ((pc & 0xFFFFFFFF))));
     signature &= ((2<<log2shct)-1); 
 
     (*lineHit)->setOutcome(true);
@@ -720,11 +720,8 @@ typename CacheSHIP<State, Addr_t>::Line *CacheSHIP<State, Addr_t>::findLinePriva
 
 template<class State, class Addr_t>
 typename CacheSHIP<State, Addr_t>::Line 
-*CacheSHIP<State, Addr_t>::findLine2Replace(Addr_t addr, bool updateSHIP, Addr_t SHIP_signature)
+*CacheSHIP<State, Addr_t>::findLine2Replace(Addr_t addr, Addr_t pc)
 { 
-  if (updateSHIP == false){
-    //MSG("Calling a CacheSHIP function with update disabled");
-  }
 
   Addr_t tag    = this->calcTag(addr);
   I(tag);
@@ -784,9 +781,9 @@ typename CacheSHIP<State, Addr_t>::Line
 
 
   //updateSHIP = false;
-  if (updateSHIP){
-    //SHIP_signature is the PC or the memory address, not the usable signature
-    Addr_t signature = (SHIP_signature ^ ((SHIP_signature>>1) + ((SHIP_signature & 0xFFFFFFFF))));
+  if (true){
+    //pc is the PC or the memory address, not the usable signature
+    Addr_t signature = (pc ^ ((pc>>1) + ((pc & 0xFFFFFFFF))));
     signature &= ((2<<log2shct)-1); 
 
     if ((tmp->isValid())){

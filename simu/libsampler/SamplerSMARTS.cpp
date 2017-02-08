@@ -91,11 +91,16 @@ uint64_t SamplerSMARTS::queue(uint64_t pc, uint64_t addr, FlowID fid, char op, i
 
     if (mode == EmuRabbit || mode == EmuInit) {
       uint64_t rabbitInst = getNextSwitch() - totalnInst;
+#if 1
       execute(fid,rabbitInst);
       // Qemu is not going to return untill it has executed these many instructions
       // Or untill it hits a syscall that causes it to exit
       // Untill then, you are on your own. Sit back and relax!
       return rabbitInst; 
+#else
+      execute(fid,1);
+      return 0; 
+#endif
     }
 
     if (mode == EmuDetail || mode == EmuTiming) {
@@ -171,14 +176,13 @@ uint64_t SamplerSMARTS::queue(uint64_t pc, uint64_t addr, FlowID fid, char op, i
 /* }}} */
 
 void SamplerSMARTS::updateCPI(FlowID fid){
-  //extract cpi of last sample interval 
- 
-  estCPI = getMeaCPI();
-  return; 
+  //extract cpi of last sample interval
 
+  estCPI = getMeaCPI();
+  return;
 }
 
-void SamplerSMARTS::nextMode(bool rotate, FlowID fid, EmuMode mod){
+void SamplerSMARTS::nextMode(bool rotate, FlowID fid, EmuMode mod) {
   if (rotate){
     fetchNextMode();
     I(next_mode != EmuInit);
