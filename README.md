@@ -1,3 +1,9 @@
+# Changes made
+Check commits for more detailed modification.
+* Commented out assertion of isMarkAdd() and isMarkDel(). (emul/libemulint/DInst.cpp)
+* Use ucontext_t instead of struct context. (emul/qemu/user-exec.c)
+* Type cast to int so that correct abs function can be found. (simu/libcore/BPred.cpp)
+
 ESESC
 =====
 
