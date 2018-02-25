@@ -58,7 +58,7 @@ static void exception_action(CPUState *cpu)
 void cpu_resume_from_signal(CPUState *cpu, void *puc)
 {
 #ifdef __linux__
-    struct ucontext *uc = puc;
+    ucontext_t *uc = puc;
 #elif defined(__OpenBSD__)
     struct sigcontext *uc = puc;
 #endif
@@ -69,7 +69,7 @@ void cpu_resume_from_signal(CPUState *cpu, void *puc)
 #ifdef __ia64
         sigprocmask(SIG_SETMASK, (sigset_t *)&uc->uc_sigmask, NULL);
 #else
-        sigprocmask(SIG_SETMASK, &uc->uc_sigmask, NULL);
+        sigprocmask(SIG_SETMASK, &(uc->uc_sigmask), NULL);
 #endif
 #elif defined(__OpenBSD__)
         sigprocmask(SIG_SETMASK, &uc->sc_mask, NULL);
@@ -227,7 +227,7 @@ int cpu_signal_handler(int host_signum, void *pinfo,
 #elif defined(__OpenBSD__)
     struct sigcontext *uc = puc;
 #else
-    struct ucontext *uc = puc;
+    ucontext_t *uc = puc;
 #endif
 
     pc = PC_sig(uc);
